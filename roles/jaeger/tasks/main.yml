@@ -1,0 +1,127 @@
+#moiseev добавил временно сюда. иначе не видит докер-пайтон библиотеку 
+---
+- name: Ensure OS dependencies are installed.
+  package:
+    name:
+      - sudo
+      - rsync
+      - python3
+      - python3-pip
+      - python3-docker
+      - python3-jsondiff
+      - python3-yaml
+      #- docker #moiseev   -бинарник не нашелся в path
+      - curl
+    state: present
+
+
+########################################    #moiseev
+- name: Install Docker #moiseev 
+  become: yes
+  block:
+    - name: Run Docker installation script
+      script:
+        cmd: |
+          /usr/bin/curl -fsSL https://get.docker.com -o get-docker.sh
+          sudo sh get-docker.sh
+
+    - name: Add Docker binary to PATH
+      become: yes
+      ansible.builtin.shell:
+        cmd: "echo 'export PATH=$PATH:$(which docker)' >> ~/.bashrc"
+      args:
+        executable: /bin/bash
+########################################    #moiseev 
+
+
+- name: Get info on Docker Swarm
+  docker_swarm_info:
+  ignore_errors: yes
+  register: result
+
+- name: Stack swarm info
+  debug:
+    msg: |
+      Was able to talk to docker daemon: {{ result.can_talk_to_docker }}
+      Docker in Swarm mode: {{ result.docker_swarm_active }}
+      This is a Manager node: {{ result.docker_swarm_manager }}
+
+
+- name: "Deploy jaeger stack"
+  when: result.docker_swarm_active is true
+  block:
+    - name: "Drop stack if exist"
+      docker_stack:
+        state: absent
+        name: "{{ jaeger_stack_name }}"
+        absent_retries: 60
+        absent_retries_interval: 5
+        #ignore_errors: yes # можно добавить такое(сети используются другими стеками) 
+        #или вынести дроп в задачу которая будет стеки дропать а потом их сети
+
+    - name: "Create directory {{ jaeger_dest_dir }}"
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ jaeger_dest_dir }}"
+
+#на тест стенде не создаем сети вне докер стэка 
+    # - name: "Create external network {{ jaeger_web }}"
+    #   docker_network:
+    #     name: "{{ jaeger_web }}"
+    #     driver: overlay
+    #     attachable: yes
+    #     state: present
+
+
+#конфиги пока что не используем...в all in one
+    - name: "Copy file {{ item.d }}"
+      copy:
+        src: "{{ item.f }}"
+        dest: "{{ item.d }}"
+        mode: "0644"
+      loop:
+        - f: files/stack.yml
+          d: "{{ jaeger_stack_file_dest }}"
+        # - f: files/jaeger/jaeger-ui.json
+        #   d: "{{ jaeger_dest_dir }}"
+        # - f: files/jaeger/otel-collector-config-connector.yml
+        #   d: "{{ jaeger_dest_dir }}"
+        # - f: files/jaeger/otel-collector-config-processor.yml
+        #   d: "{{ jaeger_dest_dir }}"
+        #   ###moiseev
+        # - f: files/jaeger/config.yml
+        #   d: "{{ jaeger_stack_file_dest }}"
+      loop_control:
+        loop_var: item
+
+    ###moiseev
+    # - name: create docker config jaeger_config
+    #   docker_config:
+    #     name: jaeger_config
+    #     data: "{{ lookup('file', 'files/jaeger/config.yml') }}"
+    #     state: present
+    #   register: jaeger_config_result
+
+    - name: "Create stack jaeger"
+      environment:
+        REGISTRY_URL: "{{ registry_url }}"
+        JAEGER_UI: "{{ jaeger_ui }}"
+        #JAEGER_WEB: "{{ jaeger_web }}"
+        #JAEGER_CONFIG: "{{ jaeger_config_result.config_name }}" 
+        #MONITORING_WEB: "{{ monitoring_web }}"         
+      docker_stack:
+        state: present
+        name: "{{ jaeger_stack_name }}"
+        with_registry_auth: yes
+        compose:
+          - "{{ jaeger_stack_file_dest }}"
+
+    - name: "Check stack status"
+      include_role:
+        name: check_stack_status
+      vars:
+        stack_name: "{{ jaeger_stack_name }}"
+
+

@@ -1,0 +1,5 @@
+---
+- name: Ensure dependencies are installed.
+  swupd:
+    name: containers-basic
+    state: present

@@ -1,0 +1,20 @@
+global:
+  resolve_timeout: 10s
+
+route:
+  group_by: ['alertname']
+  group_wait: 3s
+  receiver: 'telegram_bot'
+
+receivers:
+- name: 'telegram_bot'
+  telegram_configs:
+  - bot_token: '5112004896:AAHL2N59f-guuZKm8mDtbIwEyGnycrTP_Rc' 
+    api_url: 'https://api.telegram.org'
+    chat_id: -764769727  
+    parse_mode: 'HTML'
+    
+# - name: 'webhook'  #moiseev   - для отправки на телеграм-бот запущенный на локалке
+#   webhook_configs:  #moiseev   - для отправки на телеграм-бот запущенный на локалке
+#   - url: 'http://192.168.1.47:5000/webhook'  #moiseev   - для отправки на телеграм-бот запущенный на локалке
+  

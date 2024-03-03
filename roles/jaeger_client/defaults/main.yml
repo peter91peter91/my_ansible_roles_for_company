@@ -1,0 +1,26 @@
+---
+# The install mode: docker or service
+jaeger_client_install_mode: docker
+
+# The docker container configuration
+jaeger_client_container_name: "jaeger_client"
+registry_url: "{{ lookup('env', 'HARBOR_HOST', default='registry.компания.ru') }}"
+registry_login:
+registry_pass:
+#здесь такой путь в registry норм?
+jaeger_client_container_image: "registry.компания.ru/jaeger_client:1.53" 
+jaeger_client_container_network_name: jaeger_agent_web
+jaeger_client_container_network_driver: overlay
+jaeger_client_container_network_mode: "{{ jaeger_client_container_network_name }}"
+jaeger_client_container_state: started
+jaeger_client_container_recreate: false
+jaeger_client_container_restart_policy: always
+jaeger_client_container_env_default: {}
+jaeger_client_container_env: {}
+
+# The service configuration
+jaeger_client_service_name: "jaeger_client"
+jaeger_client_user_name: "jaeger_client"
+jaeger_client_group_name: "jaeger_client"
+jaeger_client_exec_command: /usr/local/bin/jaeger_client
+jaeger_client_download_path: ~/

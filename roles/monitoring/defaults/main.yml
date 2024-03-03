@@ -1,0 +1,52 @@
+---
+registry_url: "{{ lookup('env', 'HARBOR_HOST', default='registry.компания.ru') }}"
+
+monitoring_stack_name: monitoring_test
+monitoring_dest_dir: /opt/monitoring
+monitoring_stack_file_dest: "{{ monitoring_dest_dir }}/stack.yml"
+#monitoring_web: monitoring_web
+#monitoring_host:
+#monitoring_domain:
+
+grafana_dest_dir: "{{ monitoring_dest_dir }}/grafana"
+grafana_dashboards_dir: "{{ grafana_dest_dir }}/dashboards"
+grafana_port: 3000
+grafana_image: registry.компания.ru/dockerhub-proxy/grafana/grafana:9.4.3
+grafana_dashboard_provision_file: dashboard.yaml
+grafana_datasource_prometheus_file: datasource_prometheus.yaml
+grafana_dashboard_provision_path: "{{ grafana_dest_dir }}/{{ grafana_dashboard_provision_file }}"
+grafana_datasource_file_path: "{{ grafana_dest_dir }}/{{ grafana_datasource_prometheus_file }}"
+grafana_user: admin
+grafana_password: adminadminadmin
+
+prometheus_dest_dir: "{{ monitoring_dest_dir }}/prometheus"
+prometheus_config_file_sd_dir: "{{ prometheus_dest_dir }}/file_sd"
+prometheus_config_file: prometheus.yml
+prometheus_rules_path: "{{ prometheus_dest_dir }}/rules"
+prometheus_config_file_path: "{{ prometheus_dest_dir }}/{{ prometheus_config_file }}"
+prometheus_scrape_jobs: []
+
+# jaeger_dest_dir: "{{ prometheus_dest_dir }}/jaeger"
+# jaeger_ui: "{{ jaeger_dest_dir }}/jaeger-ui.json"
+# jaeger_otel_connector: "{{ jaeger_dest_dir }}/otel-collector-config-connector.yml"
+# jaeger_otel_processor: "{{ jaeger_dest_dir }}/otel-collector-config-processor.yml"
+
+blackbox_dest_dir: "{{ monitoring_dest_dir }}"
+blackbox_config_file: blackbox.yml
+blackbox_config_file_path: "{{ blackbox_dest_dir }}/{{ blackbox_config_file }}"
+
+   #дополнил- директорию для темпо и query
+tempo_dest_dir:  "{{ monitoring_dest_dir }}/tempo"
+tempo_config_file_path: "{{ tempo_dest_dir }}/tempo.yaml" 
+tempo_query_config_file_path: "{{ tempo_dest_dir }}/tempo-query.yaml"
+
+
+alertmanager_dest_dir: "{{ monitoring_dest_dir }}/templates"
+alertmanager_config_file_path: "{{ monitoring_dest_dir }}/alertmanager.yml"
+
+node_exporter_targets: {}
+
+# checking_vars:
+#   - monitoring_host
+#   - monitoring_domain
+#   - grafana_password

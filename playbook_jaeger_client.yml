@@ -1,0 +1,7 @@
+- hosts: "jaeger_agent"
+  become: yes
+  vars_files:
+    - "group_vars/secrets.yml"
+    - "group_vars/jaeger_client.yml"
+  roles:
+    - role: jaeger_client

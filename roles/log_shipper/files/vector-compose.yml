@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  vector:
+    image: ${VECTOR_IMAGE}
+    hostname: "{{.Node.Hostname}}"
+    environment:
+      - TZ=Europe/Moscow
+      - VECTOR_LOKI_HOST=${VECTOR_LOKI_HOST}
+      #Секунды. Повтор одинаковых логов блочится выше порога в 1 секунду.  -не будет отправлять одинаковые внутренние логи чаще, чем один раз в секунду
+      - VECTOR_INTERNAL_LOG_RATE_LIMIT=1
+      # - VECTOR_LOG=debug
+    volumes:
+      - ${VECTOR_CONFIGS_DIR}:/etc/vector
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -c=/etc/vector/vector-config.toml
+    #deploy replica for each node
+    deploy:
+      # на все ноды, но не удобно
+      # mode: global
+      replicas: ${SWARM_NODES_COUNT}
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 10
+        window: 120s
+    ports:
+      - "8686:8686"

@@ -1,0 +1,67 @@
+#Create folders and copy configs
+- name: Deploy Vector files on all nodes
+  when:
+    - result.docker_swarm_active is true
+  block:
+    - name: "Create Vector directories"
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ vector_dest_dir }}"
+        - "{{ vector_configs_dir }}"
+
+    - name: "Copy file {{ item.d }}"
+      copy:
+        src: "{{ item.f }}"
+        dest: "{{ item.d }}"
+        mode: "0644"
+      loop:
+        - f: files/vector-config.toml
+          d: "{{ vector_configs_dir }}/vector-config.toml"
+      loop_control:
+        loop_var: item
+
+#Copy stack compose and deploy container
+- name: Deploy Vector files on manager nodes
+  when:
+    - result.docker_swarm_active is true
+    - result.docker_swarm_manager is true
+  block:
+    - name: Drop stack if exist
+      docker_stack:
+        state: absent
+        name: "{{ log_shipper_stack_name }}"
+        absent_retries: 60
+        absent_retries_interval: 5
+
+    - name: "Copy file {{ item.d }}"
+      copy:
+        src: "{{ item.f }}"
+        dest: "{{ item.d }}"
+        mode: "0644"
+      loop:
+        - f: files/vector-compose.yml
+          d: "{{ vector_stack_file_dest }}"
+      loop_control:
+        loop_var: item
+
+    - name: Deploy vector Swarm Stack
+      environment:
+        REGISTRY_URL: "{{ registry_url }}"
+        VECTOR_CONFIGS_DIR: "{{ vector_configs_dir }}"
+        VECTOR_LOKI_HOST: "{{ vector_loki_host }}"
+        VECTOR_IMAGE: "{{ vector_image }}"
+        SWARM_NODES_COUNT: "{{ swarm_nodes_count }}"
+      docker_stack:
+        state: present
+        name: "{{ log_shipper_stack_name }}"
+        with_registry_auth: yes
+        compose:
+          - "{{ vector_stack_file_dest }}"
+
+    - name: "Check Swarm Stack status"
+      include_role:
+        name: check_stack_status
+      vars:
+        stack_name: "{{ log_shipper_stack_name }}"

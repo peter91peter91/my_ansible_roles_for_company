@@ -1,0 +1,40 @@
+---
+# - name: Check mandatory vars
+#   include_role:
+#     name: check_vars_is_defined
+
+- name: "Install docker for Astra"
+  include_tasks: "setup_docker_Astra.yml"
+  when: "'Astra Linux' in ansible_os_family"
+
+- name: "Install docker for Debian"
+  include_tasks: "docker_from_official.yml"
+  when: "'Debian' in ansible_os_family"
+
+- name: "Install docker for Clear Linux"
+  include_tasks: "docker_clear_linux.yml"
+  when: "'ClearLinux' in ansible_os_family"
+
+- name: "Configure docker"
+  include_tasks: "configure_docker.yml"
+
+- name: Install docker packages to system python
+  package:
+    name:
+      - python3-docker
+      - docker-compose
+
+- name: "Registry login to {{ registry_host }}"
+  docker_login:
+    registry: "{{ registry_host }}"
+    username: "{{ registry_login }}"
+    password: "{{ registry_pass }}"
+
+# - name: registry auth
+#  include_role:
+#    name: registry_login
+
+# - name: "Swarm init (Error ignores. Use swarm cluster role! )"
+#  docker_swarm:
+#    state: present
+#  ignore_errors: true

@@ -1,0 +1,9 @@
+{%- for project in elastic_targets -%}
+  {%- for config in elastic_targets[project] -%}
+- targets: ["{{ config.host }}:9114"]
+  labels:
+    instance: "{{ config.instance }}"
+    stage: "{{ config.stage }}"
+    project: "{{ project }}"
+  {% endfor %}
+{%- endfor -%}

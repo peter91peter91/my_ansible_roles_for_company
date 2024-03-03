@@ -1,0 +1,47 @@
+groups:
+
+- name: Сайт_недоступен
+  rules:
+  - alert: Сайт_недоступен
+    expr: probe_success{instance="$node"} == 0
+    for: 1m
+    annotations:
+      summary: "Critical: site '{{ $labels.instance }}' isn't available for more than 1 minutes"
+      description: "Site {{ $labels.instance }} isn't available(down)"
+
+- name: Сайты_медленные
+  rules:
+  - alert: Сайт_очень_медленный
+    expr: sum by (instance) (probe_http_duration_seconds) > 3
+    for: 3m
+    annotations:
+      summary: "Warning: Site '{{ $labels.instance }}' is very slow(>3s) for more than 3 minutes"
+      description: "Site {{ $labels.instance }} response for {{ humanize $value}}s"
+
+- name: Сайт_работает_с_ошибками
+  rules:
+  - alert: Сайт_работает_с_ошибками
+    expr: (probe_http_status_code <= 199 OR probe_http_status_code >= 300) AND probe_http_status_code != 403
+    for: 3m
+    annotations:
+      summary: "Critical: HTTP status code for the site '{{ $labels.instance }}' isn't 200-299 for more than 3 minutes"
+      description: "HTTP status code is {{ $value }}"
+
+- name: Сертификат_скоро_закончится
+  rules:
+  - alert: Срок_действия_сертификата_вышел
+    expr: probe_ssl_earliest_cert_expiry - time() < 86400 *30
+    for: 10m
+    annotations:
+      summary: "Предупреждение: SSL сертификат скоро закончится для сайта '{{ $labels.instance }}'"
+      description: "SSL certificate expires in 30 days"
+
+#BlackboxSlowProbe — предупреждать, если сайт открывается дольше 5 секунд.
+- name: Долго_открывается_сайт
+  rules:
+  - alert: Сайт_открывается_дольше_5_секунд
+    expr: avg_over_time(probe_duration_seconds[1m]) > 5
+    for: 1m
+    annotations:
+      summary: Blackbox slow probe (instance {{ $labels.instance }})
+      description: "Blackbox probe took more than 1s to complete\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"

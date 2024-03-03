@@ -1,0 +1,9 @@
+# moiseev  TestAlert
+groups:
+- name: example
+  rules:
+  - alert: TestAlert
+    expr: vector(1)
+    for: 1m
+    labels:
+      severity: page

@@ -1,0 +1,9 @@
+{%- for project in traefik_targets -%}
+  {%- for config in traefik_targets[project] -%}
+- targets: ["{{ config.host }}:{% if config.traefik_port is defined %}{{ config.traefik_port }}{% else %}80{% endif %}"]
+  labels:
+    instance: "{{ config.instance }}"
+    stage: "{{ config.stage }}"
+    project: "{{ project }}"
+{% endfor %}
+{%- endfor -%}

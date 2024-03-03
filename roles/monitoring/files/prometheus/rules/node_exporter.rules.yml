@@ -1,0 +1,38 @@
+groups:
+- name: Все_данные_из_node_exporter
+  rules:
+  - alert: InstanceDown
+    expr: up{job="$job"} == 0
+    for: 5m
+    annotations:
+      summary: "Instance {{ .instance }} down"
+      description: "{{ .instance }} of job {{ .job }} has been down for more than 5 minutes."
+#==========CPU==================================================================
+  - alert: NodeCPUUsage
+    expr: (100 - (irate(node_cpu{mode="idle", job="$job"}[5m]) * 100)) > 50
+    for: 2m
+    annotations:
+      summary: High CPU usage detected CPU usage is above 75%
+# ==============Memory==========================================================
+  - alert: NodeSwapUsageSwap
+    expr: (((node_memory_SwapTotal-node_memory_SwapFree{job="$job"})/node_memory_SwapTotal{job="$job"})*100) > 30
+    for: 2m 
+    annotations:
+      summary: Swap usage detected Swap usage usage is above 50%
+  - alert: NodeMemoryUsageMemFree
+    expr: (((node_memory_MemTotal-node_memory_MemFree-node_memory_Cached{job="$job"})/(node_memory_MemTotal{job="$job"})*100)) > 30
+    for: 2m
+    annotations:
+      summary: High memory usage detected, Memory usage is above 50%
+#==============Load=============================================================
+  - alert: nodeLoad1
+    expr: node_load1{job="$job"} > 0.7
+    for: 1m
+    annotations:
+      summary: Load
+#================Disk space Used ================================================
+  - alert: diskSpaceUsed
+    expr: (100.0 - 100 * (node_filesystem_avail{job="$job"} / node_filesystem_size{job="$job"})) > 80
+    for: 10m
+    annotations:
+      summary: Disk space userd 80

@@ -1,0 +1,13 @@
+#monitoring_web: monitoring_web
+loki_host: "monitoring_test_loki:3100"   #сейчас айпи ВМ, потом сменить на тест-стенд   moiseev
+
+deploy_promtail: true   
+deploy_vector: false
+
+node_exporter_version: 1.5.0
+
+docker_daemon_options:
+  data-root: "/data/docker"
+  log-opts:
+    max-size: "100m"
+    max-file: "5"

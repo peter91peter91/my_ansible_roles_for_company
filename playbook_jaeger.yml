@@ -1,0 +1,8 @@
+- hosts: "jaeger"
+  become: yes
+  vars_files:
+    - "group_vars/secrets.yml"
+  tasks:
+    - name: "Deploy jaeger stack"
+      include_role:
+        name: "jaeger"

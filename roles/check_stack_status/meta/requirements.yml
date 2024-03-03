@@ -1,0 +1,3 @@
+- src: https://ansible:Xr-WJkSxN8heJp31SiZt@git.компания.ru/note-code/devops/ansible-roles/watch.git
+  scm: git
+  name: watch

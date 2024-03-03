@@ -1,0 +1,103 @@
+#Create folders and copy configs
+- name: Deploy Promtail files on all nodes
+  when:
+    - result.docker_swarm_active is true
+  block:
+    - name: "Create Promtail directories"
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ promtail_dest_dir }}"
+        - "{{ promtail_configs_dir }}"
+
+    - name: "Copy file {{ item.d }}"
+      copy:
+        src: "{{ item.f }}"
+        dest: "{{ item.d }}"
+        mode: "0644"
+      loop:
+        - f: files/promtail-config.yml
+          d: "{{ promtail_configs_dir }}/promtail-config.yml"
+      loop_control:
+        loop_var: item
+
+    #moiseev   # создаем докер конфиг - чтобы не хранить локально конфиги
+    - name: create docker config promtail_config    
+      docker_config:
+        name: promtail_config
+        data: "{{ lookup('file', 'files/promtail-config.yml') }}"
+        rolling_versions: yes
+        state: present
+      register: promtail_config_result
+
+
+
+#Copy stack compose and deploy container
+- name: Deploy Promtail files on manager nodes
+  when:
+    - result.docker_swarm_active is true
+    - result.docker_swarm_manager is true
+  block:
+    - name: Drop stack if exist   #дропаем prometheus сначала,чтобы удалилась сеть промтейла
+      docker_stack:
+        state: absent
+        name: "{{ monitoring_stack_name }}"
+        absent_retries: 60
+        absent_retries_interval: 5 
+
+    - name: Drop stack if exist  #дропаем jaeger stack
+      docker_stack:
+        state: absent
+        name: "{{ jaeger_stack_name }}"
+        absent_retries: 60
+        absent_retries_interval: 5
+
+    - name: Drop stack if exist  #дропаем promtail stack
+      docker_stack:
+        state: absent
+        name: "{{ log_shipper_stack_name }}"
+        absent_retries: 60
+        absent_retries_interval: 5
+    
+
+
+    - name: "Copy file {{ item.d }}"
+      copy:
+        src: "{{ item.f }}"
+        dest: "{{ item.d }}"
+        mode: "0644"
+      loop:
+        - f: files/promtail-compose.yml
+          d: "{{ promtail_stack_file_dest }}"
+      loop_control:
+        loop_var: item
+
+        #moiseev  НЕ надо создавать сети вне Докер Сварм контекста
+    # - name: "Create external network monitoring_web_bridge"
+    #   docker_network:
+    #      name: "monitoring_web_bridge"
+    #      driver: overlay
+    #      attachable: yes
+    #      state: present
+
+    - name: Deploy Promtail Swarm Stack
+      environment:
+        REGISTRY_URL: "{{ registry_url }}"
+        PROMTAIL_CONFIGS_DIR: "{{ promtail_configs_dir }}"
+        PROMTAIL_LOKI_HOST: "{{ promtail_loki_host }}"
+        PROMTAIL_IMAGE: "{{ promtail_image }}"
+        SWARM_NODES_COUNT: "{{ swarm_nodes_count }}"
+        PROMTAIL_CONFIG: "{{ promtail_config_result.config_name }}"    #  moiseev
+      docker_stack:
+        state: present
+        name: "{{ log_shipper_stack_name }}"
+        with_registry_auth: yes
+        compose:
+          - "{{ promtail_stack_file_dest }}"
+
+    - name: "Check Swarm Stack status"
+      include_role:
+        name: check_stack_status
+      vars:
+        stack_name: "{{ log_shipper_stack_name }}"

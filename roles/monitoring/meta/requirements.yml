@@ -1,0 +1,3 @@
+- src: https://ansible:Xr-WJkSxN8heJp31SiZt@git.компания.ru/note-code/devops/ansible-roles/check_stack_status.git
+  scm: git
+  name: check_stack_status

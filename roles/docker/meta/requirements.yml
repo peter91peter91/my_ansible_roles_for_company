@@ -1,0 +1,7 @@
+- src: https://ansible:Xr-WJkSxN8heJp31SiZt@git.компания.ru/devops/ansible-roles/registry_login.git
+  scm: git
+  name: registry_login
+
+- src: https://ansible:Xr-WJkSxN8heJp31SiZt@git.компания.ru/devops/ansible-roles/check_vars_is_defined.git
+  scm: git
+  name: check_vars_is_defined

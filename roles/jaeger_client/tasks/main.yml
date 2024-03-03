@@ -1,0 +1,3 @@
+---
+- name: Include specific mode
+  include_tasks: "{{ jaeger_client_install_mode }}-mode.yml"

@@ -1,0 +1,56 @@
+version: "3.9"
+
+services:
+  promtail:
+    image: ${PROMTAIL_IMAGE}
+    networks:
+    - default
+    - web
+    configs:
+      - source: promtail_config
+        target: /etc/promtail/promtail-config.yml   
+    #push node hostname inside container
+    hostname: "{{.Node.Hostname}}"
+    ports:
+      - "9128:80"
+    environment:
+      - TZ=Europe/Moscow
+      - PROMTAIL_LOKI_HOST=${PROMTAIL_LOKI_HOST}
+    volumes:  #для тест_стенда все файлы и папки убираем в докер-конфигз и докер-вольюмз
+    ####mount docker daemon socker for promtail discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # :ro  контейнер может только читать!!!
+    #set promtail config path and enable env vars (hostname) for labels add -log.level=debug for debug
+    command: -config.file=/etc/promtail/promtail-config.yml -config.expand-env=true
+    #deploy replica for each node
+    deploy:
+      # на все ноды, но не удобно
+      # mode: global
+      replicas: ${SWARM_NODES_COUNT}
+      placement:
+        max_replicas_per_node: 1
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 10  
+        window: 120s
+    labels: # traefik
+      traefik.frontend.entryPoints: "http,https"
+      traefik.docker.network: "web"
+      traefik.backend.loadbalancer.sticky: "true"
+      traefik.frontend.rule: "Host:promtail-test.rpn.компания.ru"
+      traefik.port: 80
+
+
+configs:
+  promtail_config:
+    external: true
+    name: ${PROMTAIL_CONFIG}
+
+
+networks:
+  default:
+    #external: true        # настройка нужна ТОЛЬКО если эта сеть уже была создана
+    name: monitoring_promstack_web   
+  web:  #сеть чтобы сделать обратное проксирование траефиком
+    external: true
+    name: web

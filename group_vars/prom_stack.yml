@@ -1,0 +1,47 @@
+monitoring_dest_dir: /opt/monitoring
+prometheus_dest_dir: "{{ monitoring_dest_dir }}/prometheus"
+_file_sd_dir: "{{ prometheus_dest_dir }}/file_sd"
+grafana_dest_dir: "{{ monitoring_dest_dir }}/grafana"
+grafana_dashboards_dir: "{{ grafana_dest_dir }}/dashboards" # dir has mount of grafana service
+grafana_image: registry.компания.ru/dockerhub-proxy/grafana/grafana:9.4.3
+
+tempo_dest_dir: "{{ monitoring_dest_dir }}/tempo" # тут добавим так же папку для хранения tempo конфига
+
+role: monitoring
+
+monitoring_stack_name: monitoring_test
+
+grafana_user: admin
+grafana_password: adminadminadmin
+
+#monitoring_domain: monitoring.rpn.компания.ru 
+#monitoring_host: "https://{{ monitoring_domain }}/" # var for url grafana service
+monitoring_host: "http://айпи:3000/"  # айпи и порт графаны
+
+node_exporter_targets:  # пока не нужно собирать инфу о ресурсах машины.
+  rpn:
+    - instance: VM_moiseev_kvm_2
+      stage: test
+      host: localhost   # 192.168.122.71   # здесь айпи  ВМ
+      port: 9100
+
+blackbox_targets:   # это править 
+  rpn:
+    - instance: https://rpn.gov.ru   
+      stage: prod
+      host:     # здесь айпи  сайта прода
+
+
+postgres_targets:  #пока что не поднимаем
+  rpn:
+    - instance: #lk.rpn.gov.ru:pg-master
+      stage: 
+      host: #192.168.122.151
+      port: #9187 #порт если другой, то надо указать здесь. (Либо по умолчанию 9187)
+ 
+
+redis_targets:  #пока что не поднимаем
+  rpn:
+    - instance: #lk.rpn.gov.ru:redis
+      stage: #prod
+      host: #192.168.122.151

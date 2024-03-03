@@ -1,0 +1,274 @@
+#moiseev добавил временно сюда. иначе не видит докер-пайтон библиотеку 
+---
+- name: Ensure OS dependencies are installed.
+  package:
+    name:
+      - sudo
+      - rsync
+      - python3
+      - python3-pip
+      - python3-docker
+      - python3-jsondiff
+      - python3-yaml
+      #- docker #moiseev   -бинарник не нашелся в path
+      - curl
+    state: present
+
+
+########################################    #moiseev
+- name: Install Docker #moiseev 
+  become: yes
+  block:
+    - name: Run Docker installation script
+      script:
+        cmd: |
+          /usr/bin/curl -fsSL https://get.docker.com -o get-docker.sh
+          sudo sh get-docker.sh
+
+    - name: Add Docker binary to PATH
+      become: yes
+      ansible.builtin.shell:
+        cmd: "echo 'export PATH=$PATH:$(which docker)' >> ~/.bashrc"
+      args:
+        executable: /bin/bash
+########################################    #moiseev 
+
+
+- name: Get info on Docker Swarm
+  docker_swarm_info:
+  ignore_errors: yes
+  register: result
+
+- name: Stack swarm info
+  debug:
+    msg: |
+      Was able to talk to docker daemon: {{ result.can_talk_to_docker }}
+      Docker in Swarm mode: {{ result.docker_swarm_active }}
+      This is a Manager node: {{ result.docker_swarm_manager }}
+
+
+- name: Deploy prometheus stack
+  #when: result.docker_swarm_active #is true    # moiseev  в некоторых версиях Ансибл шаблонизатор Jinja2 не распознает конструкцию is true.
+  when: result.docker_swarm_active is true 
+  block:
+    - name: Drop stack if exist
+      docker_stack:
+        state: absent
+        name: "{{ monitoring_stack_name }}"
+        absent_retries: 60
+        absent_retries_interval: 5
+        # ignore_errors: yes # можно добавить такое(сети используются другими стеками) 
+        #или вынести дроп в задачу которая будет стеки дропать а потом их сети
+
+#НЕ  создавать сети вне докер сварм-стэка!
+    # - name: "Create external network {{ monitoring_web }}"
+    #   docker_network:
+    #     name: "{{ monitoring_web }}"
+    #     driver: overlay
+    #     # attachable: yes
+    #     state: present
+
+    - name: "Create directory {{ monitoring_dest_dir }}"
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ monitoring_dest_dir }}"
+        - "{{ prometheus_dest_dir }}"
+        - "{{ grafana_dest_dir }}"
+        - "{{ prometheus_config_file_sd_dir }}"
+        # - "{{ jaeger_dest_dir }}"
+        - "{{ tempo_dest_dir }}"              # также создадим директорию темпо
+
+    - name: "Copy dashboards"
+      copy:
+        src: files/grafana/dashboards
+        dest: "{{ grafana_dest_dir }}"
+        mode: "0644"
+
+    - name: "Copy rules"
+      copy:
+        src: files/prometheus/rules
+        dest: "{{ prometheus_dest_dir }}"
+    
+    - name: "Copy file {{ item.d }}"
+      copy:
+        src: "{{ item.f }}"
+        dest: "{{ item.d }}"
+        mode: "0644"
+      loop:
+        - f: files/stack.yml
+          d: "{{ monitoring_stack_file_dest }}"
+        - f: files/grafana/dashboard.yaml
+          d: "{{ grafana_dashboard_provision_path }}"
+        - f: files/grafana/datasource_prometheus.yaml
+          d: "{{ grafana_datasource_file_path }}"
+        - f: files/prometheus/prometheus.yml
+          d: "{{ prometheus_config_file_path }}"
+        - f: files/blackbox/blackbox.yml             
+          d: "{{ blackbox_config_file_path }}"    
+        # - f: files/jaeger/jaeger-ui.json
+        #   d: "{{ jaeger_dest_dir }}"
+        # - f: files/jaeger/otel-collector-config-connector.yml
+        #   d: "{{ jaeger_dest_dir }}"
+        # - f: files/jaeger/otel-collector-config-processor.yml
+        #   d: "{{ jaeger_dest_dir }}"
+        #добавляем сюда еще loki , tempo 
+        - f: files/loki-config.yaml
+          d: "{{ monitoring_dest_dir }}/loki-config.yaml"
+        - f: files/tempo/tempo.yaml         
+          d: "{{ tempo_config_file_path }}"
+        - f: files/tempo/tempo-query.yaml        
+          d: "{{ tempo_query_config_file_path }}"
+      loop_control:
+        loop_var: item
+
+    - name: "Render config template {{ item.d }}"
+      template:
+        src: "{{ item.f }}"
+        dest: "{{ item.d }}"
+        mode: 0755
+      loop:
+        - f: templates/redis.yml
+          d: "{{ prometheus_config_file_sd_dir }}/redis.yml"
+        - f: templates/postgres.yml
+          d: "{{ prometheus_config_file_sd_dir }}/postgres.yml"
+        - f: templates/alertmanager.yml
+          d: "{{ alertmanager_config_file_path }}"
+        - f: templates/node_exporters.yml
+          d: "{{ prometheus_config_file_sd_dir }}/node_exporters.yml"
+        - f: templates/grafana.ini
+          d: "{{ grafana_dest_dir }}/grafana.ini"
+      loop_control:
+        loop_var: item
+
+#такой способ не стоит применять
+# moiseev . job for login registry  (еще одна такая же в докер-моде нод-экспортера)
+    # - name: "Registry login to {{ registry_host }}"
+    #   docker_login:
+    #     registry: "{{ registry_url }}"
+    #     username: "{{ registry_login }}"
+    #     password: "{{ registry_pass }}"
+
+############################################## moiseev
+    - name: create docker config blackbox_config
+      docker_config:
+        name: blackbox_config
+        data: "{{ lookup('file', 'files/blackbox/blackbox.yml') }}"
+        state: present
+      register: blackbox_config_result
+
+    - name: create docker prometheus_config
+      docker_config:
+        name: prometheus_config
+        data: "{{ lookup('file', 'files/prometheus/prometheus.yml') }}"
+        state: present
+      register: prometheus_config_result   
+
+    - name: create docker config alertmanager_config
+      docker_config:
+        name: alertmanager_config
+        data: "{{ lookup('file', 'templates/alertmanager.yml') }}"
+        state: present
+      register: alertmanager_config_result    
+      
+    - name: create docker config loki_config
+      docker_config:
+        name: loki_config
+        data: "{{ lookup('file', 'files/loki-config.yaml') }}"
+        state: present
+      register: loki_config_result   
+         
+    - name: create docker tempo_config
+      docker_config:
+        name: tempo_config
+        data: "{{ lookup('file', 'files/tempo/tempo.yaml') }}"
+        state: present
+      register: tempo_config_result   
+
+    - name: create docker tempo_query_config
+      docker_config:
+        name: tempo_query_config
+        data: "{{ lookup('file', 'files/tempo/tempo-query.yaml') }}"
+        state: present
+      register: tempo_query_config_result        
+
+    - name: create docker grafana_ini
+      docker_config:
+        name: grafana_ini
+        data: "{{ lookup('file', 'templates/grafana.ini') }}"
+        state: present
+      register: grafana_ini_result    
+
+    - name: create docker grafana_datasource
+      docker_config:
+        name: grafana_datasource
+        data: "{{ lookup('file', 'files/grafana/datasource_prometheus.yaml') }}"
+        state: present
+      register: grafana_datasource_result    
+
+    - name: create docker grafana_dashboard
+      docker_config:
+        name: grafana_dashboard
+        data: "{{ lookup('file', 'files/grafana/dashboard.yaml') }}"
+        state: present
+      register: grafana_dashboard_result    
+
+
+    # - name: set config_name as a dictionary
+    #   set_fact:
+    #     config_name: "{{ blackbox_config_result.config_name | default({}) }}"
+    
+    # - name: debug config_name
+    #   debug:
+    #     var: config_name
+############################################## moiseev
+
+    - name: Create stack prometheus
+      environment:
+        REGISTRY_URL: "{{ registry_url }}"
+        MONITORING_HOST: "{{ monitoring_host }}"
+        GRAFANA_DASHBOARDS_DIR: "{{ grafana_dashboards_dir }}"
+        GRAFANA_DASHBOARD_PROVISION_PATH: "{{ grafana_dashboard_provision_path }}"
+        GRAFANA_DATASOURCE_FILE_PATH: "{{ grafana_datasource_file_path }}"
+        ALERTMANAGER_CONFIG_FILE_PATH: "{{ alertmanager_config_file_path }}"
+        PROMETHEUS_CONFIG_FILE_PATH: "{{ prometheus_config_file_path }}"
+        PROMETHEUS_CONFIGS_FILE_SD_DIR: "{{ prometheus_config_file_sd_dir }}"
+        PROMETHEUS_RULES_PATH: "{{ prometheus_rules_path }}"
+        # JAEGER_UI: "{{ jaeger_ui }}"
+        # OTEL_CONFIG_SRC: "{{ jaeger_otel_connector }}"
+        LOKI_CONFIG_PATH: "{{ monitoring_dest_dir }}/loki-config.yaml"
+        GRAFANA_PORT: "{{ grafana_port }}"
+        GRAFANA_IMAGE: "{{ grafana_image }}"
+        #MONITORING_WEB: "{{ monitoring_web }}"
+        #MONITORING_DOMAIN: "{{ monitoring_domain }}"
+        GRAFANA_USER: "{{ grafana_user }}"
+        GRAFANA_PASSWORD: "{{ grafana_password }}"
+        GRAFANA_INI_FILE: "{{ grafana_dest_dir }}/grafana.ini"
+        TEMPO_CONFIG_PATH: "{{ tempo_config_file_path }}"   
+        TEMPO_QUERY_CONFIG_PATH: "{{ tempo_query_config_file_path }}" 
+################################################
+        #moiseev переменные для докер-конфигов промстека
+        BLACKBOX_CONFIG: "{{ blackbox_config_result.config_name }}"   
+        PROMETHEUS_CONFIG: "{{ prometheus_config_result.config_name }}"   
+        ALERTMANAGER_CONFIG: "{{ alertmanager_config_result.config_name }}"  
+        LOKI_CONFIG: "{{ loki_config_result.config_name }}"  
+        TEMPO_CONFIG: "{{ tempo_config_result.config_name }}"  
+        TEMPO_QUERY_CONFIG: "{{ tempo_query_config_result.config_name }}"  
+        GRAFANA_INI: "{{ grafana_ini_result.config_name }}"  
+        GRAFANA_DATASOURCE: "{{ grafana_datasource_result.config_name }}"  
+        GRAFANA_DASHBOARD: "{{ grafana_dashboard_result.config_name }}"  
+################################################
+      docker_stack:
+        state: present
+        name: "{{ monitoring_stack_name }}"
+        with_registry_auth: yes
+        compose:
+          - "{{ monitoring_stack_file_dest }}"
+
+    - name: "Check stack status"
+      include_role:
+        name: check_stack_status
+      vars:
+        stack_name: "{{ monitoring_stack_name }}"
+

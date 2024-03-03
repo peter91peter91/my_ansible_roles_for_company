@@ -1,0 +1,9 @@
+{%- for project in redis_targets -%}
+  {%- for config in redis_targets[project] -%}
+- targets: ["{{ config.host }}:9121"]
+  labels:
+    instance: "{{ config.instance }}"
+    stage: "{{ config.stage }}"
+    project: "{{ project }}"
+{% endfor %}
+{%- endfor -%}

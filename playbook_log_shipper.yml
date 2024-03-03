@@ -1,0 +1,7 @@
+# - hosts: "smev-test-adapter,smev-boi"
+- hosts: "promtail"
+  become: yes
+  roles:
+    - role: log_shipper
+      deploy_promtail: true  
+      deploy_vector: false      

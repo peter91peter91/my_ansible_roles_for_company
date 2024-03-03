@@ -1,0 +1,56 @@
+modules:
+  # сайт0:
+#    prober: http
+#    timeout: 10s
+#    http:
+#      valid_status_codes: [200,302,301,304] # Defaults to 2xx
+#      method: GET
+#      no_follow_redirects: false
+#      fail_if_ssl: false
+#      fail_if_not_ssl: true
+#      preferred_ip_protocol: "ip4" # defaults to "ip6"
+#      tls_config:
+#        insecure_skip_verify: true
+
+  сайт1:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200,302,301,304] # Defaults to 2xx
+      method: GET
+      follow_redirects: true
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      preferred_ip_protocol: "ip4" # defaults to "ip6"
+      tls_config:
+        insecure_skip_verify: true
+
+  сайт2:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200,302,301,304] # Defaults to 2xx
+      method: GET
+      follow_redirects: true
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      preferred_ip_protocol: "ip4" # defaults to "ip6"
+      tls_config:
+        insecure_skip_verify: true
+
+  сайт3:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [200,302,301,304] # Defaults to 2xx
+      method: GET
+      headers:
+        Accept: text/csv
+        Token: F85..............
+        Serial: F85..............
+      no_follow_redirects: false
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      preferred_ip_protocol: "ip4" # defaults to "ip6"
+      tls_config:
+        insecure_skip_verify: true

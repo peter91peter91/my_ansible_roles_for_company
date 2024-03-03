@@ -1,0 +1,17 @@
+---
+registry_url: "{{ lookup('env', 'HARBOR_HOST', default='registry.компания.ru') }}"
+
+
+jaeger_stack_name: jaeger_all_in_one_test
+jaeger_web: jaeger_web
+jaeger_dest_dir: "/opt/jaeger"
+jaeger_stack_file_dest: "{{ jaeger_dest_dir }}/stack.yml"
+
+
+# не подтянуты сейчас как вольюмы докера!!
+jaeger_ui: "{{ jaeger_dest_dir }}/jaeger-ui.json"
+jaeger_otel_connector: "{{ jaeger_dest_dir }}/otel-collector-config-connector.yml"
+jaeger_otel_processor: "{{ jaeger_dest_dir }}/otel-collector-config-processor.yml"
+#moiseev
+jaeger_collector_config: "{{ jaeger_dest_dir }}/config.yml"
+

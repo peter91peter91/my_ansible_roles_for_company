@@ -1,0 +1,7 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: "Include jaeger_client"
+      include_role:
+        name: "jaeger_client"

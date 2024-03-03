@@ -1,0 +1,282 @@
+version: "3.8"
+
+x-common: &common
+  networks:
+    - web
+    - internal
+    - default
+  deploy: &common_deploy
+    replicas: 1
+    placement:
+      constraints:
+        - node.role == manager
+    restart_policy:
+      condition: any
+      delay: 5s
+      max_attempts: 10
+      window: 120s
+    update_config:
+      parallelism: 1
+      delay: 10s
+      order: stop-first
+
+
+services:
+  prometheus:
+    <<: *common
+    image: registry.компания.ru/dockerhub-proxy/prom/prometheus
+    configs:  #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml      
+    volumes: 
+       - prometheus_rules:/etc/prometheus/rules    # /opt/monitoring/prometheus/rules
+       - prometheus_sd_dir:/etc/prometheus/file_sd  #/opt/monitoring/prometheus/file_sd
+       - prometheus_data:/prometheus  #monitoring_prometheus_data
+    ports:
+      - "9092:9090"    #стандарт внешний 9090 (но уже занят другим mon_prometheus на тест стенде )
+    #extra_hosts:   # резолвим имена для мониторинга через блэкбокс
+    #  - "домен:айпи"   #адрес внутри сети компания(vpn компания)     
+    labels: # traefik
+      traefik.frontend.entryPoints: "http,https"
+      traefik.docker.network: "web"
+      traefik.backend.loadbalancer.sticky: "true"
+      traefik.frontend.rule: "Host:prometheus-test.rpn.компания.ru"
+      traefik.port: 9090    
+    environment:
+      TZ: Europe/Moscow    
+
+  pushgateway:
+    <<: *common
+    image: registry.компания.ru/dockerhub-proxy/prom/pushgateway
+    ports:
+      - "9091:9091"
+    labels: # traefik
+      traefik.frontend.entryPoints: "http,https"
+      traefik.docker.network: "web"
+      traefik.backend.loadbalancer.sticky: "true"
+      traefik.frontend.rule: "Host:pushgateway-test.rpn.компания.ru"
+      traefik.port: 9091  
+    environment:
+      TZ: Europe/Moscow
+
+  alertmanager:
+    <<: *common
+    image: registry.компания.ru/dockerhub-proxy/prom/alertmanager
+    configs:   #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+      - source: alertmanager_config
+        target: /etc/alertmanager/config.yml 
+    ports:
+      - "9093:9093"
+    volumes:
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+    labels: # traefik
+      traefik.frontend.entryPoints: "http,https"
+      traefik.docker.network: "web"
+      traefik.backend.loadbalancer.sticky: "true"
+      traefik.frontend.rule: "Host:alertmanager-test.rpn.компания.ru"
+      traefik.port: 9093
+    environment:
+      TZ: Europe/Moscow
+
+  grafana:
+    <<: *common
+    image: ${GRAFANA_IMAGE}
+    configs:  #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+      - source: grafana_config_1
+        target: /etc/grafana/grafana.ini
+      - source: grafana_config_2  
+        target: /etc/grafana/provisioning/datasources/datasource_prometheus.yaml
+      - source: grafana_config_3
+        target: etc/grafana/provisioning/dashboards/dashboard.yaml
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    volumes:
+      - lib_grafana:/var/lib/grafana
+      - grafana_dashboards_dir:/var/lib/grafana/dashboards
+    environment:
+      TZ: Europe/Moscow
+      GF_SERVER_ROOT_URL: '${MONITORING_HOST}'
+      GF_INSTALL_PLUGINS: 'redis-datasource,grafana-piechart-panel,netsage-sankey-panel,grafana-image-renderer'
+      #GF_SECURITY_ADMIN_USER: '${GRAFANA_USER}'
+      #GF_SECURITY_ADMIN_PASSWORD: '${GRAFANA_PASSWORD}'
+####для тест стенда сделал пока что  без авторизации
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: 'Admin'
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'    
+####
+      #moiseev ПОЧЕМУ SERVER_URL CALLBACK_URL именно такие???  в стэке у них имена с приставкой monitoring
+      GF_RENDERING_SERVER_URL: http://renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/ 
+      #GF_RENDERING_SERVER_URL: http://monitoring_renderer:8081/render
+      #GF_RENDERING_CALLBACK_URL: http://monitoring_grafana:3000/   
+      GF_LOG_FILTERS: rendering:debug
+      #moiseev в случае domain/grafana... GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    deploy:
+      <<: *common_deploy
+    labels: # traefik
+      traefik.frontend.entryPoints: "http,https"
+      traefik.docker.network: "web"
+      traefik.backend.loadbalancer.sticky: "true"
+      traefik.frontend.rule: "Host:grafana-test.rpn.компания.ru"
+      traefik.port: 3000
+
+  renderer:
+    <<: *common
+    image: grafana/grafana-image-renderer:latest
+    ports:
+      - 8081
+
+  loki:
+    <<: *common
+    image: registry.компания.ru/dockerhub-proxy/grafana/loki:latest
+    configs:   #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+      - source: loki_config
+        target: /etc/loki/loki-config.yaml
+    command:
+     - -config.file=/etc/loki/loki-config.yaml
+    environment:
+      - TZ=Europe/Moscow
+    ports:
+      - "3100:3100"   # UI нету,траефик не пишем
+    volumes:
+      - loki-data:/loki
+
+  blackbox-exporter:
+    <<: *common
+    image: prom/blackbox-exporter:latest
+    configs: #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+    - source: blackbox_config  
+      target: /config/blackbox.yml
+    command:
+      - '--config.file=/config/blackbox.yml'
+    ports:
+      - "9115:9115"
+    labels: # traefik
+      traefik.frontend.entryPoints: "http,https"
+      traefik.docker.network: "web"
+      traefik.backend.loadbalancer.sticky: "true"
+      traefik.frontend.rule: "Host:blackbox-test.rpn.компания.ru"
+      traefik.port: 9115
+    environment:
+      TZ: Europe/Moscow
+
+  # tempo:
+  #   <<: *common
+  #   image: grafana/tempo:latest
+  #   configs: #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+  #   - source: tempo_config    
+  #     target: /etc/tempo/tempo.yaml
+  #   deploy:
+  #     labels:
+  #       - "com.docker.stack.namespace=tempo"
+  #       - "com.docker.stack.service=tempo_distributer_ingester"
+  #   command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+  #   volumes:
+  #     - tempo-data:/tmp/tempo
+  #   ports:
+  #     - "14268"  # jaeger ingest
+  #     - "3200"   # tempo
+
+  # tempo-query:
+  #   image: grafana/tempo-query:latest
+  #   <<: *common
+  #   configs: 
+  #   - source: tempo_query_config  
+  #     target: /etc/tempo/tempo-query.yaml #отдельный бэкенд для tempo-query
+  #   command: [ "--grpc-storage-plugin.configuration-file=/etc/tempo-query.yaml" ]
+  #   deploy:
+  #     labels:
+  #       - "com.docker.stack.namespace=tempo"
+  #       - "com.docker.stack.service=tempo_query"
+  #   ports:
+  #     - "16687:16686"  # 16687 на тест стенде, так как 16686 занят джаегером 
+  #   depends_on:
+  #     - tempo:3200
+
+  # tempo:
+  #   image: grafana/tempo:latest
+  #   <<: *common
+  #   configs: #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+  #   - source: tempo_config    
+  #     target: /etc/tempo/tempo.yaml    
+  #   deploy:
+  #     labels:
+  #       - "com.docker.stack.namespace=tempo"
+  #       - "com.docker.stack.service=tempo_all_in_one_service"
+  #   command: [ "-config.file=/etc/tempo/tempo.yaml" ]
+  #   volumes:
+  #     - tempo-data:/tmp/tempo
+  #   ports:
+  #     - "14968:14268"  # jaeger ingester    14268: уже занят ДЖАЕГЕРОМ на тест стенде
+  #     - "3200:3200"   # tempo
+  #     - "9095:9095" # tempo grpc
+  #     #на эти порты направлять трейсы
+  #     - "4397:4317"  #  OTLP gRPC      -4317: уже занят ДЖАЕГЕРОМ на тест стенде
+  #     - "4398:4318"  #  OTLP HTTP    -4318: уже занят ДЖАЕГЕРОМ на тест стенде
+  #     - "9491:9411"   # протокол zipkin        -9411: уже занят ДЖАЕГЕРОМ на тест стенде
+  #     - "16687:16686"  #moiseev добавил порт query,который подключался ранее как datasource
+
+
+
+  curl-service:  #чтобы посоздавать запросы в темпо... curl -X POST http://tempo:14268/api/traces \
+    <<: *common
+    image: curlimages/curl:latest  # Образ с установленным curl
+    command: ["/bin/sh", "-c", "tail -f /dev/null"]
+    # каждые 10 секунд отправляем курл
+    #command: ["/bin/sh", "-c", "while sleep 10; do curl -X POST http://tempo:14268/api/traces -H 'Content-Type:application/json' -d \"[{\\\"trace_id\\\":\\\"6e7b5d8ad1849768b982e787d038fcd3\\\",\\\"span_id\\\":\\\"00f067aa0ba902b7\\\",\\\"name\\\":\\\"example-span-moiseev\\\",\\\"parent_id\\\":\\\"00f067aa0ba902b7\\\",\\\"kind\\\":\\\"SERVER\\\",\\\"start_time\\\":1634241697669000,\\\"end_time\\\":1634241697671000,\\\"attributes\\\":{},\\\"status\\\":{\\\"code\\\":\\\"OK\\\",\\\"message\\\":\\\"\\\"}}]\"; done"]
+
+
+# такие сети для тест стенда(web- для траефика), остальные для подключения от приложений разрабов
+networks:
+  web: #Для траефика
+    external: true
+    name: web
+  internal: # внутрестековая
+    attachable: true
+    name: promstack_test_internal_web
+  default: # эта сеть для связи со стэком мониторинга(нужна на случай,если сети траефика нет)
+    external: true        # настройка нужна если эта сеть уже была создана
+    name: monitoring_promstack_web  
+
+
+volumes:
+  prometheus_data:
+  prometheus_sd_dir:
+  prometheus_rules:
+  alertmanager_data:
+  grafana_dashboards_dir:
+  lib_grafana:
+  loki-data:
+  #tempo-data:
+
+configs:
+  blackbox_config:
+    external: true
+    name: ${BLACKBOX_CONFIG}
+  prometheus_config:
+    external: true
+    name: ${PROMETHEUS_CONFIG}
+  alertmanager_config:
+    external: true
+    name: ${ALERTMANAGER_CONFIG}
+  loki_config:
+    external: true
+    name: ${LOKI_CONFIG}
+  # tempo_config:
+  #   external: true
+  #   name: ${TEMPO_CONFIG}
+  # tempo_query_config:
+  #   external: true
+  #   name: ${TEMPO_QUERY_CONFIG}
+  grafana_config_1:
+    external: true
+    name: ${GRAFANA_INI}
+  grafana_config_2:
+    external: true
+    name: ${GRAFANA_DATASOURCE}
+  grafana_config_3:
+    external: true
+    name: ${GRAFANA_DASHBOARD}

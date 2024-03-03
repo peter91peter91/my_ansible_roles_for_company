@@ -1,0 +1,35 @@
+---
+#default registry url for promtail image
+registry_url: "{{ lookup('env', 'HARBOR_HOST', default='registry.компания.ru') }}"
+#docker swarm stack name
+log_shipper_stack_name: log_shipper_test
+monitoring_stack_name: monitoring_test  #moiseev   для дропа стеков перед подъемом промтейла 
+jaeger_stack_name: jaeger_all_in_one_test #moiseev   для дропа стеков перед подъемом промтейла 
+#log shippers to install
+deploy_promtail: true   #moiseev   
+deploy_vector: false
+#########
+#Promtail
+#########
+#swarm node dirs for compose stack and configs
+promtail_dest_dir: /opt/promtail
+promtail_configs_dir: "{{ promtail_dest_dir }}/configs"
+#compose stack file to deploy on the node
+promtail_stack_file_dest: "{{ promtail_dest_dir }}/compose.yml"
+#host with loki database to send logs to
+promtail_loki_host: "http://{{ loki_host }}/loki/api/v1/push"
+#Image
+promtail_image: registry.компания.ru/dockerhub-proxy/grafana/promtail:2.8.4
+#########
+#Vector
+#########
+#swarm node dirs for compose stack and configs
+vector_dest_dir: /opt/vector
+vector_configs_dir: "{{ vector_dest_dir }}/configs"
+#compose stack file to deploy on the node
+vector_stack_file_dest: "{{ vector_dest_dir }}/compose.yml"
+#host with loki database to send logs to
+vector_loki_host: "http://{{ loki_host }}"
+#Image
+vector_image: registry.компания.ru/dockerhub-proxy/timberio/vector:0.32.1-alpine
+

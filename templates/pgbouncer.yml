@@ -1,0 +1,9 @@
+{%- for project in pgbouncer_targets -%}
+  {%- for config in pgbouncer_targets[project] -%}
+- targets: ["{{ config.host }}:{% if config.port is defined %}{{ config.port }}{% else %}9127{% endif %}"]
+  labels:
+    instance: "{{ config.instance }}"
+    stage: "{{ config.stage }}"
+    project: "{{ project }}"
+{% endfor %}
+{%- endfor -%}

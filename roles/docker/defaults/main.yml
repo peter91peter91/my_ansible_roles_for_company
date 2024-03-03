@@ -1,0 +1,9 @@
+---
+registry_host: "{{ lookup('env', 'HARBOR_HOST', default='registry.компания.ru') }}"
+
+registry_login: "{{ lookup('env', 'HARBOR_USERNAME') }}"
+registry_pass: "{{ lookup('env', 'HARBOR_PASSWORD') }}"
+
+checking_vars:
+  - registry_pass
+  - registry_login

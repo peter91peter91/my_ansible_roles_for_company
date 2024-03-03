@@ -1,0 +1,51 @@
+#Аутентификация через X-Scope-OrgID. Нужна только для нескольких Loki
+auth_enabled: false
+
+#Порты на которых слушает сервер. Дефолты. Просто на всякий указаны явно
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+
+#Общий конфиг для модулей
+common:
+  path_prefix: /tmp/loki
+  storage:
+    filesystem:
+      chunks_directory: /tmp/loki/chunks
+      rules_directory: /tmp/loki/rules
+  replication_factor: 1
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+frontend:
+    address: 0.0.0.0
+
+schema_config:
+  configs:
+    - from: 2022-12-04
+      store: boltdb
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 48h
+
+storage_config:
+  boltdb:
+    directory: /loki/index
+  filesystem:
+    directory: /loki/chunks
+
+ruler:
+  alertmanager_url: http://alertmanager:9093
+
+# Ограничение хранения
+limits_config:
+  retention_period: 72h
+  ingestion_rate_mb: 10
+
+table_manager:
+  retention_deletes_enabled: true
+  retention_period: 72h

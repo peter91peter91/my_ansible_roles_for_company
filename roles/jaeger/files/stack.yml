@@ -1,0 +1,88 @@
+# To run a specific version of Jaeger, use environment variable, e.g.:
+#     JAEGER_VERSION=1.52 docker compose up
+
+version: "3.8"
+
+x-common: &common
+  networks:
+    - web
+    - internal
+    - develop
+    - testing
+    - default
+  deploy: &common_deploy
+    replicas: 1
+    placement:
+      constraints:
+        - node.role == manager
+    restart_policy:
+      condition: any
+      delay: 5s
+      max_attempts: 10
+      window: 120s
+    update_config:
+      parallelism: 1
+      delay: 10s
+      order: stop-first
+
+services:
+  jaeger-all-in-one-test:
+    <<: *common
+    image: jaegertracing/all-in-one:${JAEGER_VERSION:-latest}
+    #этот конфиг пока что не используем, он обычно для oltp-коллектора подцепляется
+    # configs:  #для тест_стенда все файлы и папки убираем в docker-configs и docker-volumes
+    #   - source: jaeger_config
+    #     target: /etc/jaeger/config.yml      
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      - LOG_LEVEL=debug
+      - COLLECTOR_OTLP_ENABLED=true
+    labels: # traefik
+      traefik.frontend.entryPoints: "http,https"
+      traefik.docker.network: "web"
+      traefik.backend.loadbalancer.sticky: "true"
+      traefik.frontend.rule: "Host:jaeger-test.rpn.компания.ru"
+      traefik.port: 16686
+
+#создание искусственных трассировок, можно этот сервис убрать 
+  hotrod:
+    <<: *common
+    image: jaegertracing/example-hotrod:${JAEGER_VERSION:-latest}
+    # To run the latest trunk build, find the tag at Docker Hub and use the line below
+    # https://hub.docker.com/r/jaegertracing/example-hotrod-snapshot/tags
+    #image: jaegertracing/example-hotrod-snapshot:0ab8f2fcb12ff0d10830c1ee3bb52b745522db6c
+    ports:
+      - "8080:8080"
+      - "8083:8083"
+    command: ["all"]
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://айпи:4318
+    depends_on:
+      - jaeger-all-in-one-test
+
+
+# такие сети для тест стенда(web- для траефика), остальные для подключения от приложений разрабов
+networks:
+  web:
+    external: true
+    name: web
+  internal:
+    attachable: true
+    name: jaeger_test_internal_web
+  develop:
+    external: true
+    name: rpn-backend-develop_internal
+  testing:
+    external: true
+    name: rpn-backend-testing_internal
+  default: # эта сеть для связи со стэком мониторинга(нужна на случай,если сети траефика нет)
+    external: true        # настройка нужна если эта сеть уже была создана
+    name: monitoring_promstack_web  
+
+
+# configs:
+#   jaeger_config:
+#     external: true
+#     name: ${JAEGER_CONFIG}

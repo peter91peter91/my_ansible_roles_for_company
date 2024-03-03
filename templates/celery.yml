@@ -1,0 +1,9 @@
+{%- for project in celery_targets -%}
+  {%- for config in celery_targets[project] -%}
+- targets: ["{{ config.host }}:9540"]
+  labels:
+    instance: "{{ config.instance }}"
+    stage: "{{ config.stage }}"
+    project: "{{ project }}"
+{% endfor %}
+{%- endfor -%}

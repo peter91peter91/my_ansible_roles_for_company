@@ -1,0 +1,9 @@
+- hosts: "prom_stack"
+  become: yes
+  vars_files:
+    - "group_vars/secrets.yml"
+    - "group_vars/prom_stack.yml"
+  tasks:
+    - name: "Deploy prometheus stack"
+      include_role:
+        name: "monitoring"

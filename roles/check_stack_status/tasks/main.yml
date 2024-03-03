@@ -1,0 +1,38 @@
+---
+- name: 'Clear output file before run'
+  become: true
+  copy:
+    content: ""
+    dest: "/tmp/stack-status.log"
+    mode: 0777
+
+- name: Copy script to stand
+  copy:
+    src: files/docker-stack-wait.sh
+    dest: "{{ wait_sh_path_install }}/docker-stack-wait.sh"
+    mode: '0766'
+
+- name: Deploy stack!
+  become: true
+  shell: |
+    set -o pipefail
+    "{{ wait_sh_path_install }}/docker-stack-wait.sh" "{{ stack_name }}" 2>&1 | tee --append /tmp/stack-status.log
+  args:
+    executable: /bin/bash
+    chdir: "{{ wait_sh_path_install }}"
+  async: "600"
+  poll: 0
+  register: 'long_run_register'
+
+# - name: '[LOGS] - Watch "/tmp/stack-status.log" until finishes'
+#   include_role:
+#     name: 'watch'
+#   vars:
+#     display_ok_hosts: no
+#     display_skipped_hosts: no
+#     watch_title: "{{ stack_name }} deploying..."
+#     watch_become: true
+#     watch_file: '/tmp/stack-status.log'
+#     watch_job: 'long_run_register'
+#     watch_timeout: "600"
+#     watch_poll: "1"

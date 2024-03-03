@@ -1,0 +1,50 @@
+#выходит, этот файл был раньше под сервис,а я переделал под контейнер...
+- name: Creating jaeger_client user group
+  group:
+    name: "{{ jaeger_client_group_name }}"
+  become: true
+
+- name: Creating jaeger_client user
+  user:
+    name: "{{ jaeger_client_user_name }}"
+    group: "{{ jaeger_client_group_name }}"
+    system: true
+    shell: "/sbin/nologin"
+    comment: "{{ jaeger_client_user_name }} nologin User"
+    createhome: "no"
+    state: present
+
+- name: Pull Jaeger Ingester Docker image
+  docker_image:
+    name: "jaegertracing/jaeger-ingester:1.53"
+    source: pull
+
+- name: Copy systemd init file
+  template:
+    src: jaeger_client.service.j2
+    dest: /etc/systemd/system/jaeger_client.service
+    mode: 0644
+
+- name: Start Jaeger Ingester container
+  docker_container:
+    name: "{{ jaeger_client_container_name }}"
+    image: "jaegertracing/jaeger-ingester:1.53"
+    network_mode: "{{ jaeger_client_container_network_mode }}"
+    pid_mode: "host"
+    networks:
+      - name: "{{ jaeger_client_container_network_name }}"
+    ports:
+      - "16686:16686"
+    volumes:
+      - "/:/host:ro,rslave"
+    env: "{{ jaeger_client_container_env_default | combine(jaeger_client_container_env) }}"
+    state: "{{ jaeger_client_container_state }}"
+    recreate: "{{ jaeger_client_container_recreate }}"
+    restart_policy: "{{ jaeger_client_container_restart_policy }}"
+    labels: "{{ jaeger_client_container_labels | default(omit) }}"
+
+- name: Check if Jaeger Ingester works
+  uri:
+    url: http://127.0.0.1:16686/
+    method: GET
+    status_code: 200

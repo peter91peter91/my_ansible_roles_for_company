@@ -1,0 +1,9 @@
+{%- for project in postgres_targets -%}
+  {%- for config in postgres_targets[project] -%}
+- targets: ["{{ config.host }}:{% if config.port is not defined %}9187{% else %}{{ config.port }}{% endif %}"]
+  labels:
+    instance: "{{ config.instance }}"
+    stage: "{{ config.stage }}"
+    project: "{{ project }}"
+{% endfor %}
+{%- endfor -%}

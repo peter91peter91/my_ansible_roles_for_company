@@ -1,0 +1,26 @@
+# Деплой с ВМ1 на ВМ 2
+# [node_exporter]
+# peter_vm2 ansible_host=192.168.122.151  ansible_user=vm-debian-ui ansible_become_password=
+
+# #сначала promtail
+# [promtail]
+# peter_vm2 ansible_host=192.168.122.151  ansible_user=vm-debian-ui ansible_become_password=   #moiseev
+
+# # # затем графану+прометей
+# [prom_stack]
+# peter_vm2 ansible_host=192.168.122.151  ansible_user=vm-debian-ui ansible_become_password=  #либо отключить пароль на ВМ. ?либо еще как то можно настроить без логина пароля...
+
+
+# Деплой на тест-стенд
+#сначала promtail
+[promtail]   # moiseev
+localhost ansible_connection=local
+
+# затем графану+прометей
+[prom_stack]
+localhost ansible_connection=local
+
+# затем джаегер
+[jaeger]
+localhost ansible_connection=local
+

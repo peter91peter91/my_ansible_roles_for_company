@@ -1,0 +1,5 @@
+backend: "tempo:3200"
+
+#нужен если есть отдельный бэкенд для темпо query  ?
+
+# https://github.com/search?q=repo%3Agrafana%2Ftempo+backend&type=code

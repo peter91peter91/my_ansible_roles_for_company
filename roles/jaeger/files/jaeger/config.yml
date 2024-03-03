@@ -1,0 +1,104 @@
+extensions:
+  zpages:
+    endpoint: :55679
+  health_check:
+  pprof:
+    endpoint: :1888
+
+receivers:
+  otlp:
+    protocols:
+      #grpc:
+      #  endpoint: localhost:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+  memory_limiter:
+    # 75% of maximum memory up to 2G
+    limit_mib: 1536
+    # 25% of limit up to 2G
+    spike_limit_mib: 512
+    check_interval: 5s
+  resource:
+    attributes:
+      - key: test.key
+        value: "gateway"
+        action: insert
+  tail_sampling:
+    decision_wait: 2s
+    num_traces: 100
+    expected_new_traces_per_sec: 1
+    policies:
+      [
+        {
+          name: test-policy-1,
+          type: status_code,
+          status_code: {status_codes: [ERROR]}
+        },
+        {
+          name: test-policy-2,
+          type: latency,
+          latency: {threshold_ms: 1500}
+        },
+      ]
+
+exporters:
+  otlp/jaeger: # Jaeger supports OTLP directly
+    endpoint: jaeger-all-in-one:4317
+    tls:
+      insecure: true
+  debug:
+    verbosity: detailed
+
+service:
+  extensions: [zpages, health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlp/jaeger]
+    #metrics:
+    #  receivers: [otlp]
+    #  processors: [memory_limiter, batch]
+    #  exporters: [debug, otlp/jaeger]
+
+
+
+
+
+# processors:
+#   batch:
+#     timeout: 1s
+#   memory_limiter:
+#     limit_mib: 1536
+#     spike_limit_mib: 512
+#     check_interval: 5s
+#   resource:
+#     attributes:
+#       - key: test.key
+#         value: "gateway"
+#         action: insert
+#   tail_sampling:
+#     decision_wait: 2s
+#     num_traces: 100
+#     expected_new_traces_per_sec: 1
+#     policies:
+#       - name: test-policy-1
+#         type: status_code
+#         status_code:
+#           status_codes: [ERROR]
+#       - name: test-policy-2
+#         type: latency
+#         latency:
+#           threshold_ms: 1500
+
+# exporters:
+#   otlp/jaeger:
+#     endpoint: jaeger-all-in-one:4317
+#     tls:
+#       insecure: true
+#   debug:
+#     verbosity: detailed

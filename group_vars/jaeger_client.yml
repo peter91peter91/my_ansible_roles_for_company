@@ -1,0 +1,3 @@
+# что то прописать здесь для коллектора в случае с all in one ?
+jaeger_collector: "айпи:14250"  #тест стенд
+role: jaeger_client

@@ -1,0 +1,56 @@
+#moiseev добавил временно сюда. иначе не видит докер-пайтон библиотеку 
+---
+- name: Ensure OS dependencies are installed.
+  package:
+    name:
+      - sudo
+      - rsync
+      - python3
+      - python3-pip
+      - python3-docker
+      - python3-jsondiff
+      - python3-yaml
+      #- docker #moiseev   -бинарник не нашелся в path
+      - curl
+    state: present
+
+
+########################################    #moiseev
+- name: Install Docker #moiseev 
+  become: yes
+  block:
+    - name: Run Docker installation script
+      script:
+        cmd: |
+          /usr/bin/curl -fsSL https://get.docker.com -o get-docker.sh
+          sudo sh get-docker.sh
+
+    - name: Add Docker binary to PATH
+      become: yes
+      ansible.builtin.shell:
+        cmd: "echo 'export PATH=$PATH:$(which docker)' >> ~/.bashrc"
+      args:
+        executable: /bin/bash
+########################################    #moiseev 
+
+
+
+#---
+- name: Get Info about Swarm
+  import_tasks:
+    file: swarm_info.yml
+
+- name: Deploy Promtail
+  when:
+    - deploy_promtail is true
+    - deploy_vector is false
+  import_tasks:
+    file: deploy_promtail.yml
+
+- name: Deploy Vector
+  when:
+    - deploy_promtail is false
+    - deploy_vector is true
+  import_tasks:
+    file: deploy_vector.yml
+

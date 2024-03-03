@@ -1,0 +1,50 @@
+#file with last read line from log stamp
+positions:
+  filename: /tmp/positions.yaml
+
+#connection to loki database (or another promtail)
+clients:
+  - url: ${PROMTAIL_LOKI_HOST}
+
+
+#scrape using promtail docker discovery
+scrape_configs:
+  - job_name: docker_discovery_scrape
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        #filter containers by name
+        # filters:
+        #   - name: name
+        #     values: ["traefik*"]
+        refresh_interval: 5s
+    relabel_configs:
+      #########################
+      #Docker Service Discovery
+      #########################
+      #container name from discovery labels
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/(.*)"
+        target_label: "container_name"
+      #stdout/stderr from discovery labels
+      - source_labels: ["__meta_docker_container_log_stream"]
+        target_label: "container_logs"
+      #########################
+      #Custom labels
+      #########################
+      #hostname from container env, should be in compose file too
+      - replacement: ${HOSTNAME}
+        target_label: "host"
+      #swarm service name from built-in docker labels (docker inspect)
+      - source_labels:
+          ["__meta_docker_container_label_com_docker_swarm_service_name"]
+        target_label: "swarm_service"
+      - source_labels:
+          ["__meta_docker_container_label_com_docker_stack_namespace"]
+        target_label: "swarm_stack"
+
+    # static_configs:
+    #     - targets:
+    #         - localhost
+    #       labels: # A `job` label is fairly standard in prometheus and useful for linking metrics and logs.
+    #         log_type: promtail_file
+    #         __path__: /data/docker/containers/1883d0d7119c71ec42506a57a45d6413cd19b88f4c9e1cc2fc4cb3772f40d63f/1883d0d7119c71ec42506a57a45d6413cd19b88f4c9e1cc2fc4cb3772f40d63f-json.log

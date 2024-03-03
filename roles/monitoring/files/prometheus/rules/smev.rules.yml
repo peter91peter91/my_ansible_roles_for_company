@@ -1,0 +1,17 @@
+groups:
+  - name: "SMEV3"
+    rules:
+
+    - alert: "Smev3_недоступен"
+      expr: count(max_over_time(rpn_smev_messages_count[5m]) > 15) == 0
+      annotations:
+        description: "Dashboard: https://monitoring.rpn.компания.ru/d/VDiTYs3nz?orgId=1"
+        summary: "Критическая: pSMEV3 dashboard inactive last 5 minutes"
+
+    - alert: "SmevLowActivity"
+      expr: count(max_over_time(rpn_smev_messages_count[5m]) > 0) == 0
+      annotations:
+        description: "Dashboard: https://monitoring.rpn.компания.ru/d/VDiTYs3nz?orgId=1"
+        summary: "pSMEV3 dashboard low activity last 5 minutes"
+      # labels:
+      #   severity: warning

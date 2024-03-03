@@ -1,0 +1,13 @@
+---
+#- name: Push apt repos list configuration
+#  copy: src=files/sources.list dest=/etc/apt/sources.list mode=0640
+- name: Docker install!
+  block:
+    - name: install docker for astra 1.6 from docker official repos
+      include_tasks: "docker_from_official.yml"
+      when: "{{ '1.6' in ansible_facts.lsb.description }}"
+
+    - name: install docker for astra 1.7 from astra repos
+      include_tasks: "docker_astra_1_7.yml"
+      when: "{{ '1.7' in ansible_distribution_version }}"
+

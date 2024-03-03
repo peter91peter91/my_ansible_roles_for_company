@@ -1,0 +1,29 @@
+#enable listener
+timezone = "Europe/Moscow"
+
+[api]
+enabled = true
+address = "0.0.0.0:8686"
+
+#scrape using docker discovery plugin
+[sources.in]
+type = "docker_logs"
+docker_host = "unix:///var/run/docker.sock"
+#exclude_containers = [ "traefik_" ]
+
+#send discovered logs to loki
+[sinks.out]
+type = "loki"
+inputs = [ "in" ]
+compression = "gzip"
+endpoint = "${VECTOR_LOKI_HOST}"
+path = "/loki/api/v1/push"
+encoding.codec = "text"
+out_of_order_action="accept"
+  #add custom labels 
+  [sinks.out.labels]
+  swarm_service = '{{ label."com.docker.swarm.service.name" }}'
+  swarm_stack = '{{ label."com.docker.stack.namespace" }}'
+  container_name = '{{ container_name }}'
+  #container_logs = '{{ container_log_stream }}'
+  host = "${HOSTNAME}"

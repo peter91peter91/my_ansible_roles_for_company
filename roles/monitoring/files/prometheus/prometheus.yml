@@ -1,0 +1,79 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+  # external_labels:
+  #   environment: Production
+  #   service: Prometheus
+  #   region: RU
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+rule_files:
+  - "rules/*.rules.yml"
+
+scrape_configs:
+  - job_name: pushgateway
+    scrape_interval: 10s
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
+
+  # - job_name: http_2xx-rpngov.ru
+  #   metrics_path: /probe
+  #   params:
+  #     module: [http_2xx-rpngov.ru]
+  #   relabel_configs:
+  #     - source_labels: ["address"]
+  #       target_label: param_target
+  #     - source_labels: ["__param_target"]
+  #       target_label: instance
+  #     - replacement: blackbox-exporter:9115
+  #       target_label: __address
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     #- targets: ["https://rpn.gov.ru/"]  # так ошибка:  https://rpn.gov.ru/\" is not a valid hostname"
+  #     #- targets: ["rpn.gov.ru"]   # так ошибка   Get "http://rpn.gov.ru:80/probe?module=http_2xx-rpngov.ru": context deadline exceeded
+  #     #хотя вручную всё работает curl 'http://localhost:9115/probe?module=http_2xx-rpngov.ru&target=https://rpn.gov.ru/'
+  #     - targets: ["https://rpn.gov.ru/"]
+  #     #указать можно любой яндекс гугл
+
+  - job_name: node_exporter #настроена без авторизации
+    honor_labels: true
+    file_sd_configs:
+      - files:
+          - "/etc/prometheus/file_sd/node_exporters.yml"
+
+  - job_name: redis
+    scheme: http
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/file_sd/redis.yml
+    honor_labels: true
+
+  - job_name: postgres
+    scheme: http
+    file_sd_configs:
+      - files:
+          - /etc/prometheus/file_sd/postgres.yml
+    honor_labels: true
+
+  # - job_name: 'tempo-ingester'
+  #   static_configs:
+  #     - targets:
+  #       - tempo:3200
+
+  # - job_name: 'tempo-query'
+  #   static_configs:
+  #     - targets:
+  #       - tempo-query:16687
+
+
+
+  # - job_name: 'tempo_metrics_generator'
+  #   static_configs:
+  #     - targets: 
+  #       - metrics_generator:9092

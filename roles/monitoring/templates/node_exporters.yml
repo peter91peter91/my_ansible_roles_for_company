@@ -1,0 +1,10 @@
+{%- for project in node_exporter_targets -%}
+  {%- for config in node_exporter_targets[project] -%}
+- targets: ["{{ config.host }}:{% if config.port is not defined %}9100{% else %}{{ config.port }}{% endif %}"]
+  labels:
+    service: Node
+    instance: "{{ config.instance }}"
+    stage: "{{ config.stage }}"
+    project: "{% if config.project is not defined %}{{ project }}{% else %}{{ config.project }}{% endif %}"
+{% endfor %}
+{%- endfor -%}
